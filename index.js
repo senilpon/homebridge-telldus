@@ -188,7 +188,7 @@ module.exports = (homebridge) => {
 			};
 
 			if (typeof this.api.listSensors !== 'function') {
-				return Promise.reject(new Error('API method listSensors is not available'));
+				return Promise.reject(new Error(`API method listSensors is not available  ${this.api}`));
 				this.log('API Object:', this.api);
 			}
 			return api.listSensors()
