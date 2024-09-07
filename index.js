@@ -187,6 +187,10 @@ module.exports = (homebridge) => {
 				return new TelldusDevice(this.log, device, deviceConfig, api);  // Pass the api object here
 			};
 
+			if (typeof this.api.listSensors !== 'function') {
+				return Promise.reject(new Error('API method listSensors is not available'));
+				this.log('API Object:', this.api);
+			}
 			return api.listSensors()
 			.then(sensors => {
 				debug('getSensors response', sensors);
@@ -360,7 +364,7 @@ module.exports = (homebridge) => {
 						bluebird.resolve(api.getSensorInfo(this.device.id)).asCallback((err, device) => {
 							if (err) return callback(err); 
 
-							//ADDED THIS ROW TO BREAK AWAY FROM NaN 
+							//Line added to handle NaN results from devices 
 							if (isNaN(cx.getValueFromDev(device))) {
 								this.log("Getting humidity for sensor " + device.name + " [0]");
 								callback(false, 0);	
