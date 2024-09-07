@@ -225,10 +225,20 @@ module.exports = (homebridge) => {
 		getServices: function() {
 			// Check if 'api' and 'hap' are available
 			const hap = this.api ? this.api.hap : undefined;
-						
-			// Access Service and Characteristic either from 'hap' or from the root (old versions)
-			const Service = hap ? hap.Service : global.Service;
-			const Characteristic = hap ? hap.Characteristic : global.Characteristic;
+
+			if (!hap) {
+				this.log("HAP is not available");
+				return [];
+			}
+
+			// Access Service and Characteristic from 'hap'
+			const Service = hap.Service;
+			const Characteristic = hap.Characteristic;
+
+			if (!Service || !Characteristic) {
+				this.log("Service or Characteristic is not available");
+				return [];
+			}
 
 			// Create accessory information service
 			const accessoryInformation = new Service.AccessoryInformation();
