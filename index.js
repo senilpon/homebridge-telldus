@@ -167,7 +167,6 @@ module.exports = (homebridge) => {
 				});
 		},
 		getAccessories: function() {
-			this.api = api;  // Pass the api object here
 			// When creating devices, pass the api explicitly
 			const createDevice = (device, api) => {
 				const deviceConfig = isLocal
@@ -188,8 +187,8 @@ module.exports = (homebridge) => {
 			};
 
 			if (typeof this.api.listSensors !== 'function') {
-				return Promise.reject(new Error(`API method listSensors is not available  ${this.api}`));
-				this.log('API Object:', this.api);
+				return Promise.reject(new Error('API method listSensors is not available',  typeof this.api));
+				this.log('API Object:', typeof this.api);
 			}
 			return api.listSensors()
 			.then(sensors => {
