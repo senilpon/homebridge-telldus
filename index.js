@@ -118,18 +118,19 @@ module.exports = (homebridge) => {
 		this.unknownAccessories = config["unknown_accessories"] || [];
 	}
 
-	function TelldusDevice(log, device, deviceConfig) {
+	function TelldusDevice(log, device, deviceConfig, api) {
 		this.device = device;
 		this.name = device.name;
 		this.id = device.id;
-
+		this.api = api; // Assign the api to this.api
+	
 		log(`Creating accessory with ID ${this.id}. Name from telldus: ${this.name}`);
-
+	
 		// Split manufacturer and model
 		const modelSplit = (device.model || '').split(':');
 		this.model = modelSplit[0] || 'unknown';
 		this.manufacturer = modelSplit[1] || 'unknown';
-
+	
 		if (deviceConfig) {
 			log(`Custom config found for ID ${deviceConfig.id}.`);
 			if (deviceConfig.model) {
@@ -145,7 +146,7 @@ module.exports = (homebridge) => {
 				this.name = deviceConfig.name;
 			}
 		}
-
+	
 		// Device log
 		this.log = function(string) {
 			log("[" + this.name + "] " + string);
@@ -167,23 +168,21 @@ module.exports = (homebridge) => {
 		},
 		getAccessories: function() {
 			const createDevice = (device) => {
-				// If we are running against local API, ID's are different
 				const deviceConfig = isLocal
-					// https://github.com/jchnlemon/homebridge-telldus/issues/56
 					? this.unknownAccessories.find(a => a.local_id == device.id && ((!a.type && !device.type) || a.type === device.type))
-					: this.unknownAccessories.find(a => a.id == device.id)
-
+					: this.unknownAccessories.find(a => a.id == device.id);
+			
 				if ((deviceConfig && deviceConfig.disabled)) {
 					this.log(`Device ${device.id} is disabled, ignoring`);
 					return;
 				}
-
+			
 				if (!device.name) {
 					this.log(`Device ${device.id} has no name from telldus, ignoring`);
 					return;
 				}
-
-				return new TelldusDevice(this.log, device, deviceConfig);
+			
+				return new TelldusDevice(this.log, device, deviceConfig, this.api); // Pass the api here
 			};
 
 			return api.listSensors()
@@ -223,47 +222,38 @@ module.exports = (homebridge) => {
 		},
 
 		getServices: function() {
-			// Check if 'api' and 'hap' are available
-			const hap = this.api ? this.api.hap : undefined;
-
-			if (!hap) {
-				this.log("HAP is not available");
-				return [];
-			}
-
-			// Access Service and Characteristic from 'hap'
-			const Service = hap.Service;
-			const Characteristic = hap.Characteristic;
-
+			// Access Service and Characteristic from 'this.api.hap'
+			const Service = this.api.Service;
+			const Characteristic = this.api.Characteristic;
+		
 			if (!Service || !Characteristic) {
 				this.log("Service or Characteristic is not available");
 				return [];
 			}
-
+		
 			// Create accessory information service
 			const accessoryInformation = new Service.AccessoryInformation();
-
+		
 			// Set characteristics
 			accessoryInformation
 				.setCharacteristic(Characteristic.Manufacturer, this.manufacturer)
 				.setCharacteristic(Characteristic.Model, this.model)
 				.setCharacteristic(Characteristic.SerialNumber, this.id);
-
+		
 			const modelDefinition = modelDefinitions.find(d => d.model === this.model);
-
+		
 			let services = [];
-
+		
 			if (modelDefinition) {
 				services = modelDefinition.definitions.map(this.configureServiceCharacteristics.bind(this));
-			}
-			else {
+			} else {
 				this.log(
 					`Your device (model ${this.device.model}, id ${this.id}) is not auto detected from telldus live. Please add the following to your config, under telldus platform (replace MODEL with a valid type, and optionally set manufacturer):\n` +
 					`"unknown_accessories": [{ "id": ${this.id}, "model": "MODEL", "manufacturer": "unknown" }]\n` +
 					`Valid models are: ${modelDefinitions.map(d => d.model).join(', ')}`
 				);
 			}
-
+		
 			return [accessoryInformation].concat(services);
 		},
 
