@@ -1,7 +1,7 @@
 {
   "name": "@pontusnilsson/homebridge-telldus-pn",
   "description": "Telldus plugin for homebridge",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "scripts": {
     "test": "exit 0",
     "lint": "eslint ."
@@ -22,10 +22,10 @@
   ],
   "engines": {
     "node": ">=8",
-    "homebridge": ">=0.2.5"
+    "homebridge": ">=0.2.5 || ^2.0.0-beta.0"
   },
   "dependencies": {
-    "bluebird": "^3.4.6",
+    "bluebird": "^3.7.2",
     "telldus-api": "^1.0.4"
   },
   "devDependencies": {
