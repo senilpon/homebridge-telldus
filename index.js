@@ -80,7 +80,7 @@ module.exports = function(homebridge) {
 	];
 
 	module.exports = (homebridge) => {
-		homebridge.registerPlatform('homebridge-telldus-pn', "Telldus", TelldusPlatform);
+		homebridge.registerPlatform("Telldus", TelldusPlatform);
 	};
 
 	function TelldusPlatform(log, config) {
