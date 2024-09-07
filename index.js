@@ -152,8 +152,6 @@ module.exports = (homebridge) => {
 			log("[" + this.name + "] " + string);
 		};
 	}
-	
-
 
 	TelldusPlatform.prototype = {
 		accessories: function(callback) {
@@ -189,31 +187,35 @@ module.exports = (homebridge) => {
 			};
 
 			return api.listSensors()
-        .then(sensors => {
-					debug('getSensors response', sensors);
-          this.log(`Found ${sensors.length} sensors in telldus live.`);
+			.then(sensors => {
+				debug('getSensors response', sensors);
+				this.log(`Found ${sensors.length} sensors in telldus live.`);
+				
+				return sensors.map(sensor => createDevice(sensor)).filter(sensor => sensor);
+			})
+			.then(sensors => {
+				return api.listDevices()
+					.then(devices => {
+						debug('getDevices response', devices);
+						this.log(`Found ${devices.length} devices in telldus live.`);
 
-					return sensors.map(sensor => createDevice(sensor)).filter(sensor => sensor);
-        })
-				.then(sensors => {
-					return api.listDevices()
-						.then(devices => {
-							debug('getDevices response', devices);
-							this.log(`Found ${devices.length} devices in telldus live.`);
+						// Only supporting type 'device' and when methods exists
+						// TODO: Smoke detector is ignored here. Telldus does not send correct devicetype
+						const filtered = devices.filter(s => s.type === 'device' && s.methods > 0);
 
-							// Only supporting type 'device' and when methods exists
-							// TODO: Smoke detector is ignored here. Telldus does not send correct devicetype
-							const filtered = devices.filter(s => s.type === 'device' && s.methods > 0);
-
-							return bluebird.mapSeries(filtered, device => device);  // No need to look up as all info is here
-							// return bluebird.mapSeries(filtered, device => api.getDeviceInfo(device.id));
-						})
-						.then(devices => {
-							debug('getDeviceInfo responses', devices);
-							return devices.map(device => createDevice(device)).filter(sensor => sensor);
-						})
-						.then(devices => sensors.concat(devices));
-				});
+						return bluebird.mapSeries(filtered, device => device);  // No need to look up as all info is here
+						// return bluebird.mapSeries(filtered, device => api.getDeviceInfo(device.id));
+					})
+					.then(devices => {
+						debug('getDeviceInfo responses', devices);
+						return devices.map(device => createDevice(device)).filter(sensor => sensor);
+					})
+					.then(devices => sensors.concat(devices));
+			})
+			.catch(err => {
+				this.log(`Error fetching sensors: ${err.message}`);
+				throw err;
+			});
 		}
 	};
 
