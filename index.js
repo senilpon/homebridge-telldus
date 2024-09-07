@@ -7,12 +7,14 @@ const util = require('./util');
 
 module.exports = (homebridge) => {
 	// Compatibility with both Homebridge 1.x and 2.x
-	let api = homebridge ? (homebridge.hap ? homebridge.hap : homebridge.api.hap) : undefined;
-	
-	const Service = api ? api.Service : homebridge.hap.Service;
-	const Characteristic = api ? api.Characteristic : homebridge.hap.Characteristic;
-	
 	let isLocal;
+
+	const api = homebridge ? (homebridge.hap ? homebridge.hap : homebridge.api.hap) : undefined;
+
+    const Service = api ? api.Service : homebridge.hap.Service;
+    const Characteristic = api ? api.Characteristic : homebridge.hap.Characteristic;
+
+    homebridge.registerPlatform("homebridge-telldus-pn", "Telldus", TelldusPlatform);
 
 	const modelDefinitions = [
 		{
@@ -79,25 +81,22 @@ module.exports = (homebridge) => {
 		},		
 	];
 
-	homebridge.registerPlatform("homebridge-telldus-pn","Telldus", TelldusPlatform);
-
-	function TelldusPlatform(log, config) {
+	function TelldusPlatform(log, config, api) {
 		this.log = log;
-
+		this.api = api;  // Store api in the platform
+	
 		isLocal = !!config.local;
-
 		log(`isLocal: ${isLocal}`);
-
+	
 		// The config
 		if (isLocal) {
 			const ipAddress = config.local.ip_address;
 			const accessToken = config.local.access_token;
 			if (!ipAddress) throw new Error('Please specify ip_address in config');
 			if (!accessToken) throw new Error('Please specify access_token in config');
-
-			api = new LocalApi({ host: ipAddress, accessToken });
-		}
-		else {
+	
+			this.api = new LocalApi({ host: ipAddress, accessToken });
+		} else {
 			const key = config["public_key"];
 			const secret = config["private_key"];
 			const tokenKey = config["token"];
@@ -106,23 +105,24 @@ module.exports = (homebridge) => {
 			if (!secret) throw new Error('Please specify private_key in config');
 			if (!tokenKey) throw new Error('Please specify token in config');
 			if (!tokenSecret) throw new Error('Please specify token_secret in config');
-
-			api = new LiveApi({
+	
+			this.api = new LiveApi({
 				key,
 				secret,
 				tokenKey,
 				tokenSecret,
 			});
 		}
-
+	
 		this.unknownAccessories = config["unknown_accessories"] || [];
 	}
-
+	
+	// Pass api to the device when creating it
 	function TelldusDevice(log, device, deviceConfig, api) {
 		this.device = device;
 		this.name = device.name;
 		this.id = device.id;
-		this.api = api; // Assign the api to this.api
+		this.api = api;  // Pass the api object here
 	
 		log(`Creating accessory with ID ${this.id}. Name from telldus: ${this.name}`);
 	
@@ -152,6 +152,8 @@ module.exports = (homebridge) => {
 			log("[" + this.name + "] " + string);
 		};
 	}
+	
+
 
 	TelldusPlatform.prototype = {
 		accessories: function(callback) {
@@ -167,7 +169,8 @@ module.exports = (homebridge) => {
 				});
 		},
 		getAccessories: function() {
-			const createDevice = (device) => {
+			// When creating devices, pass the api explicitly
+			const createDevice = (device, api) => {
 				const deviceConfig = isLocal
 					? this.unknownAccessories.find(a => a.local_id == device.id && ((!a.type && !device.type) || a.type === device.type))
 					: this.unknownAccessories.find(a => a.id == device.id);
@@ -182,7 +185,7 @@ module.exports = (homebridge) => {
 					return;
 				}
 			
-				return new TelldusDevice(this.log, device, deviceConfig, this.api); // Pass the api here
+				return new TelldusDevice(this.log, device, deviceConfig, api);  // Pass the api object here
 			};
 
 			return api.listSensors()
