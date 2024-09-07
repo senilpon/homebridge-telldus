@@ -7,7 +7,7 @@ const util = require('./util');
 
 module.exports = (homebridge) => {
 	// Compatibility with both Homebridge 1.x and 2.x
-	const api = homebridge ? (homebridge.hap ? homebridge.hap : homebridge.api.hap) : undefined;
+	let api = homebridge ? (homebridge.hap ? homebridge.hap : homebridge.api.hap) : undefined;
 	
 	const Service = api ? api.Service : homebridge.hap.Service;
 	const Characteristic = api ? api.Characteristic : homebridge.hap.Characteristic;
