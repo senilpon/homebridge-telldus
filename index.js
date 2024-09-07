@@ -5,7 +5,7 @@ const debug = require('debug')('homebridge-telldus-pn');
 const { LocalApi, LiveApi } = require('telldus-api');
 const util = require('./util');
 
-module.exports = function(homebridge) {
+module.exports = (homebridge) => {
 	// Compatibility with both Homebridge 1.x and 2.x
 	const api = homebridge ? (homebridge.hap ? homebridge.hap : homebridge.api.hap) : undefined;
 	
@@ -79,9 +79,7 @@ module.exports = function(homebridge) {
 		},		
 	];
 
-	module.exports = (api) => {
-		api.registerPlatform("homebridge-telldus-pn","Telldus", TelldusPlatform);
-	};
+	homebridge.registerPlatform("homebridge-telldus-pn","Telldus", TelldusPlatform);
 
 	function TelldusPlatform(log, config) {
 		this.log = log;
