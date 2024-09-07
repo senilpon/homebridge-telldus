@@ -79,8 +79,8 @@ module.exports = function(homebridge) {
 		},		
 	];
 
-	module.exports = (homebridge) => {
-		homebridge.registerPlatform("Telldus", TelldusPlatform);
+	module.exports = (api) => {
+		api.registerPlatform("homebridge-telldus-pn","Telldus", TelldusPlatform);
 	};
 
 	function TelldusPlatform(log, config) {
