@@ -7,48 +7,6 @@ const util = require('./util');
 const fs = require("fs");
 const { stringify } = require('querystring');
 
-const commands = {
-	on: 0x0001, // 1
-	off: 0x0002, // 2
-	bell: 0x0004, // 4
-	toggle: 0x0008, // 8
-	dim: 0x0010, // 16
-	learn: 0x0020, // 32
-	execute: 0x0040, // 64
-	up: 0x0080, // 128
-	down: 0x0100, // 256
-	stop: 0x0200, // 512
-	rgb: 0x0400, // 1024
-	thermostat: 0x800, // 2048
-};
-
-// mask for device matching without dimming
-const noDimmerMask = Object.values(commands).reduce((memo, num) => memo + num, 0) - commands.dim;  // all but dimmer
-
-const deviceTypes = {
-	unknown: '00000000-0001-1000-2005-ACCA54000000', 
-	alarmSensor: '00000001-0001-1000-2005-ACCA54000000',
-	container: '00000002-0001-1000-2005-ACCA54000000',
-	controller: '00000003-0001-1000-2005-ACCA54000000',
-	doorWindow: '00000004-0001-1000-2005-ACCA54000000',
-	light: '00000005-0001-1000-2005-ACCA54000000',
-	lock: '00000006-0001-1000-2005-ACCA54000000',
-	media: '00000007-0001-1000-2005-ACCA54000000',
-	meter: '00000008-0001-1000-2005-ACCA54000000',
-	motion: '00000009-0001-1000-2005-ACCA54000000',
-	onOffSensor: '0000000A-0001-1000-2005-ACCA54000000',
-	person: '0000000B-0001-1000-2005-ACCA54000000',
-	remoteControl: '0000000C-0001-1000-2005-ACCA54000000',
-	sensor: '0000000D-0001-1000-2005-ACCA54000000',
-	smokeSensor: '0000000E-0001-1000-2005-ACCA54000000',
-	speaker: '0000000F-0001-1000-2005-ACCA54000000',
-	switchOutlet: '00000010-0001-1000-2005-ACCA54000000',
-	thermostat: '00000011-0001-1000-2005-ACCA54000000',
-	virtual: '00000012-0001-1000-2005-ACCA54000000',
-	windowCovering: '00000013-0001-1000-2005-ACCA54000000',
-	projectorScreen: '00000014-0001-1000-2005-ACCA54000000',
-};
-
 module.exports = function(homebridge) {
 	// Compatibility with both Homebridge 1.x and 2.x
 	const api = homebridge ? (homebridge.hap ? homebridge.hap : homebridge.api.hap) : undefined;
@@ -104,7 +62,7 @@ module.exports = function(homebridge) {
 			model: 'temperature',
 			definitions: [{ service: Service.TemperatureSensor, characteristics: [ Characteristic.CurrentTemperature ] }],
 		},
-		// oregon protocol temperature sensor model
+			// oregon protocol temperature sensor model
 		{
 			model: 'EA4C',
 			definitions: [{ service: Service.TemperatureSensor, characteristics: [ Characteristic.CurrentTemperature ] }],
