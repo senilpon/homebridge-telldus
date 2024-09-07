@@ -167,9 +167,6 @@ module.exports = (homebridge) => {
 				});
 		},
 		getAccessories: function() {
-			this.device = device;
-			this.name = device.name;
-			this.id = device.id;
 			this.api = api;  // Pass the api object here
 			// When creating devices, pass the api explicitly
 			const createDevice = (device, api) => {
