@@ -167,6 +167,10 @@ module.exports = (homebridge) => {
 				});
 		},
 		getAccessories: function() {
+			this.device = device;
+			this.name = device.name;
+			this.id = device.id;
+			this.api = api;  // Pass the api object here
 			// When creating devices, pass the api explicitly
 			const createDevice = (device, api) => {
 				const deviceConfig = isLocal
@@ -186,7 +190,7 @@ module.exports = (homebridge) => {
 				return new TelldusDevice(this.log, device, deviceConfig, api);  // Pass the api object here
 			};
 
-			return api.getSensors()
+			return api.listSensors()
 			.then(sensors => {
 				debug('getSensors response', sensors);
 				this.log(`Found ${sensors.length} sensors in telldus live.`);
@@ -194,7 +198,7 @@ module.exports = (homebridge) => {
 				return sensors.map(sensor => createDevice(sensor)).filter(sensor => sensor);
 			})
 			.then(sensors => {
-				return api.getDevices()
+				return api.listDevices()
 					.then(devices => {
 						debug('getDevices response', devices);
 						this.log(`Found ${devices.length} devices in telldus live.`);
