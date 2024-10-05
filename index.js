@@ -155,7 +155,7 @@ module.exports = (homebridge) => {
 
 	TelldusPlatform.prototype = {
 		accessories: function(callback) {
-			this.log("Loading accessories...");
+			this.log("Loading accessories....");
 
 			this.getAccessories()
 				.then(accessories => {
