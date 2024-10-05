@@ -5,16 +5,11 @@ const debug = require('debug')('homebridge-telldus-pn');
 const { LocalApi, LiveApi } = require('telldus-api');
 const util = require('./util');
 
-module.exports = (homebridge) => {
-	// Compatibility with both Homebridge 1.x and 2.x
+module.exports = function(homebridge) {
+	const Service = homebridge.hap.Service;
+	const Characteristic = homebridge.hap.Characteristic;
+	let api;
 	let isLocal;
-
-	const api = homebridge ? (homebridge.hap ? homebridge.hap : homebridge.api.hap) : undefined;
-
-    const Service = api ? api.Service : homebridge.hap.Service;
-    const Characteristic = api ? api.Characteristic : homebridge.hap.Characteristic;
-
-    homebridge.registerPlatform("homebridge-telldus-pn", "Telldus", TelldusPlatform);
 
 	const modelDefinitions = [
 		{
@@ -33,7 +28,7 @@ module.exports = (homebridge) => {
 			model: 'temperature',
 			definitions: [{ service: Service.TemperatureSensor, characteristics: [ Characteristic.CurrentTemperature ] }],
 		},
-			// oregon protocol temperature sensor model
+		// oregon protocol temperature sensor model
 		{
 			model: 'EA4C',
 			definitions: [{ service: Service.TemperatureSensor, characteristics: [ Characteristic.CurrentTemperature ] }],
@@ -81,22 +76,25 @@ module.exports = (homebridge) => {
 		},		
 	];
 
-	function TelldusPlatform(log, config, api) {
+	homebridge.registerPlatform("homebridge-telldus-pn", "Telldus", TelldusPlatform);
+
+	function TelldusPlatform(log, config) {
 		this.log = log;
-		this.api = api;  // Store api in the platform
-	
+
 		isLocal = !!config.local;
+
 		log(`isLocal: ${isLocal}`);
-	
+
 		// The config
 		if (isLocal) {
 			const ipAddress = config.local.ip_address;
 			const accessToken = config.local.access_token;
 			if (!ipAddress) throw new Error('Please specify ip_address in config');
 			if (!accessToken) throw new Error('Please specify access_token in config');
-	
-			this.api = new LocalApi({ host: ipAddress, accessToken });
-		} else {
+
+			api = new LocalApi({ host: ipAddress, accessToken });
+		}
+		else {
 			const key = config["public_key"];
 			const secret = config["private_key"];
 			const tokenKey = config["token"];
@@ -105,32 +103,30 @@ module.exports = (homebridge) => {
 			if (!secret) throw new Error('Please specify private_key in config');
 			if (!tokenKey) throw new Error('Please specify token in config');
 			if (!tokenSecret) throw new Error('Please specify token_secret in config');
-	
-			this.api = new LiveApi({
+
+			api = new LiveApi({
 				key,
 				secret,
 				tokenKey,
 				tokenSecret,
 			});
 		}
-	
+
 		this.unknownAccessories = config["unknown_accessories"] || [];
 	}
-	
-	// Pass api to the device when creating it
-	function TelldusDevice(log, device, deviceConfig, api) {
+
+	function TelldusDevice(log, device, deviceConfig) {
 		this.device = device;
 		this.name = device.name;
 		this.id = device.id;
-		this.api = api;  // Pass the api object here
-	
+
 		log(`Creating accessory with ID ${this.id}. Name from telldus: ${this.name}`);
-	
+
 		// Split manufacturer and model
 		const modelSplit = (device.model || '').split(':');
 		this.model = modelSplit[0] || 'unknown';
 		this.manufacturer = modelSplit[1] || 'unknown';
-	
+
 		if (deviceConfig) {
 			log(`Custom config found for ID ${deviceConfig.id}.`);
 			if (deviceConfig.model) {
@@ -146,7 +142,7 @@ module.exports = (homebridge) => {
 				this.name = deviceConfig.name;
 			}
 		}
-	
+
 		// Device log
 		this.log = function(string) {
 			log("[" + this.name + "] " + string);
@@ -155,11 +151,12 @@ module.exports = (homebridge) => {
 
 	TelldusPlatform.prototype = {
 		accessories: function(callback) {
-			this.log("Loading accessories....");
+			this.log("Loading accessories...");
 
 			this.getAccessories()
 				.then(accessories => {
-					callback(accessories);
+					const uniqueAccessories = [...new Map(accessories.map(item => [item.id, item])).values()];
+					callback(uniqueAccessories);
 				})
 				.catch(err => {
 					this.log(err.message);
@@ -167,60 +164,58 @@ module.exports = (homebridge) => {
 				});
 		},
 		getAccessories: function() {
-			// When creating devices, pass the api explicitly
-			const createDevice = (device, api) => {
+			const processedDevices = new Set();
+			const createDevice = (device) => {
+				// Check if the device has already been processed
+				if (processedDevices.has(device.id)) {
+					this.log(`Device ${device.id} has already been processed, skipping`);
+					return null;
+				}
+
+				processedDevices.add(device.id);
+				// If we are running against local API, ID's are different
 				const deviceConfig = isLocal
+					// https://github.com/jchnlemon/homebridge-telldus/issues/56
 					? this.unknownAccessories.find(a => a.local_id == device.id && ((!a.type && !device.type) || a.type === device.type))
-					: this.unknownAccessories.find(a => a.id == device.id);
-			
+					: this.unknownAccessories.find(a => a.id == device.id)
+
 				if ((deviceConfig && deviceConfig.disabled)) {
 					this.log(`Device ${device.id} is disabled, ignoring`);
 					return;
 				}
-			
+
 				if (!device.name) {
 					this.log(`Device ${device.id} has no name from telldus, ignoring`);
 					return;
 				}
-			
-				return new TelldusDevice(this.log, device, deviceConfig, api);  // Pass the api object here
+
+				return new TelldusDevice(this.log, device, deviceConfig);
 			};
-		
-			this.log(` ${Object.keys(this.api)} test`); // Log available methods on the API object
-			if (typeof this.api.listSensors !== 'function') {
-				return Promise.reject(new Error('API method listSensors is not available',  typeof this.api));
-				this.log('API Object:', typeof this.api);
-			}
+
 			return api.listSensors()
-			.then(sensors => {
-				debug('getSensors response', sensors);
-				this.log(`Found ${sensors.length} sensors in telldus live.`);
-				
-				return sensors.map(sensor => createDevice(sensor)).filter(sensor => sensor);
-			})
-			.then(sensors => {
-				return api.listDevices()
-					.then(devices => {
-						debug('getDevices response', devices);
-						this.log(`Found ${devices.length} devices in telldus live.`);
+        .then(sensors => {
+					debug('getSensors response', sensors);
+          this.log(`Found ${sensors.length} sensors in telldus live.`);
 
-						// Only supporting type 'device' and when methods exists
-						// TODO: Smoke detector is ignored here. Telldus does not send correct devicetype
-						const filtered = devices.filter(s => s.type === 'device' && s.methods > 0);
+					return sensors.map(sensor => createDevice(sensor)).filter(sensor => sensor);
+        })
+				.then(sensors => {
+					return api.listDevices()
+						.then(devices => {
+							debug('getDevices response', devices);
+							this.log(`Found ${devices.length} devices in telldus live.`);
 
-						return bluebird.mapSeries(filtered, device => device);  // No need to look up as all info is here
-						// return bluebird.mapSeries(filtered, device => api.getDeviceInfo(device.id));
-					})
-					.then(devices => {
-						debug('getDeviceInfo responses', devices);
-						return devices.map(device => createDevice(device)).filter(sensor => sensor);
-					})
-					.then(devices => sensors.concat(devices));
-			})
-			.catch(err => {
-				this.log(`Error fetching sensors: ${err.message}`);
-				throw err;
-			});
+							// Only supporting type 'device'
+							const filtered = devices.filter(s => s.type === 'device');
+
+							return bluebird.mapSeries(filtered, device => api.getDeviceInfo(device.id));
+						})
+						.then(devices => {
+							debug('getDeviceInfo responses', devices);
+							return devices.map(device => createDevice(device)).filter(sensor => sensor);
+						})
+						.then(devices => sensors.concat(devices));
+				});
 		}
 	};
 
@@ -232,45 +227,33 @@ module.exports = (homebridge) => {
 		},
 
 		getServices: function() {
-			// Access Service and Characteristic from 'this.api.hap'
-			const Service = this.api.Service;
-			const Characteristic = this.api.Characteristic;
-		
-			if (!Service || !Characteristic) {
-				this.log("Service or Characteristic is not available");
-				return [];
-			}
-		
-			// Create accessory information service
+			// Accessory information
 			const accessoryInformation = new Service.AccessoryInformation();
-		
-			// Set characteristics
+
 			accessoryInformation
 				.setCharacteristic(Characteristic.Manufacturer, this.manufacturer)
 				.setCharacteristic(Characteristic.Model, this.model)
 				.setCharacteristic(Characteristic.SerialNumber, this.id);
-		
+
 			const modelDefinition = modelDefinitions.find(d => d.model === this.model);
-		
+
 			let services = [];
-		
+
 			if (modelDefinition) {
 				services = modelDefinition.definitions.map(this.configureServiceCharacteristics.bind(this));
-			} else {
+			}
+			else {
 				this.log(
 					`Your device (model ${this.device.model}, id ${this.id}) is not auto detected from telldus live. Please add the following to your config, under telldus platform (replace MODEL with a valid type, and optionally set manufacturer):\n` +
 					`"unknown_accessories": [{ "id": ${this.id}, "model": "MODEL", "manufacturer": "unknown" }]\n` +
 					`Valid models are: ${modelDefinitions.map(d => d.model).join(', ')}`
 				);
 			}
-		
+
 			return [accessoryInformation].concat(services);
 		},
 
 		configureServiceCharacteristics: function(definition) {
-			// Ensure compatibility between Homebridge 1.x and 2.x
-			const api = homebridge ? (homebridge.hap ? homebridge.hap : homebridge.api.hap) : undefined;
-	
 			const service = new definition.service(this.name);
 			const characteristics = definition.characteristics;
 
@@ -289,28 +272,6 @@ module.exports = (homebridge) => {
 							if (err) return callback(err);
 							this.log("Getting current state for security " + cdevice.name + " [" + (cx.getValueFromDev(cdevice) == 3 ? "disarmed" : "armed") + "]");
 							bluebird.delay(1000) //API Delay
-							callback(false, cx.getValueFromDev(cdevice));
-						});
-					});
-
-					cx.on('set', (state, callback) => {
-						bluebird.resolve(api.dimDevice(this.device.id, state)).asCallback(err => {
-							callback(err);
-						});
-					});
-				}
-
-				if (cx instanceof Characteristic.SecuritySystemTargetState) {
-					cx.getValueFromDev = dev => {
-						if (dev.state == 2) return 3;
-						if (dev.state == 16 && dev.statevalue !== "unde") return parseInt(dev.statevalue);
-						return 2;
-					};
-
-					cx.on('get', (callback) => {
-						bluebird.resolve(api.getDeviceInfo(this.device.id)).asCallback((err, cdevice) => {
-							if (err) return callback(err);
-							this.log("Getting current state for security " + cdevice.name + " [" + (cx.getValueFromDev(cdevice) == 3 ? "disarmed" : "armed") + "]");
 							callback(false, cx.getValueFromDev(cdevice));
 						});
 					});
@@ -364,7 +325,7 @@ module.exports = (homebridge) => {
 						bluebird.resolve(api.getSensorInfo(this.device.id)).asCallback((err, device) => {
 							if (err) return callback(err); 
 
-							//Line added to handle NaN results from devices 
+							//ADDED THIS ROW TO BREAK AWAY FROM NaN 
 							if (isNaN(cx.getValueFromDev(device))) {
 								this.log("Getting humidity for sensor " + device.name + " [0]");
 								callback(false, 0);	
@@ -391,14 +352,23 @@ module.exports = (homebridge) => {
 							if (err) return callback(err);
 							this.log("Getting state for switch " + cdevice.name + " [" + (cx.getValueFromDev(cdevice) ? "on" : "off") + "]");
 
-							switch (cx.props.format) {
-							case Characteristic.Formats.INT:
-								callback(false, cx.getValueFromDev(cdevice) ? 1 : 0);
-								break;
-							case Characteristic.Formats.BOOL:
+							if (Characteristic && Characteristic.Formats && cx.props) {
+								switch (cx.props.format) {
+								  case Characteristic.Formats.UINT8:
+								  case Characteristic.Formats.INT:  // Fallback to INT if UINT8 is not defined
+									callback(false, cx.getValueFromDev(cdevice) ? 1 : 0);
+									break;
+								  case Characteristic.Formats.BOOL:
+									callback(false, cx.getValueFromDev(cdevice));
+									break;
+								  default:
+									this.log("Unknown characteristic format");
+									callback(false, cx.getValueFromDev(cdevice));
+								}
+							  } else {
+								this.log("Characteristic Formats are undefined");
 								callback(false, cx.getValueFromDev(cdevice));
-								break;
-							}
+							  }
 						});
 					});
 
