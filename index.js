@@ -186,7 +186,7 @@ module.exports = (homebridge) => {
 				return new TelldusDevice(this.log, device, deviceConfig, api);  // Pass the api object here
 			};
 		
-			console.log(Object.keys(this.api)); // Log available methods on the API object
+			this.log(Object.keys(this.api)); // Log available methods on the API object
 			if (typeof this.api.listSensors !== 'function') {
 				return Promise.reject(new Error('API method listSensors is not available',  typeof this.api));
 				this.log('API Object:', typeof this.api);
