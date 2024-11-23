@@ -194,10 +194,10 @@ module.exports = function(homebridge) {
 
 			return api.listSensors()
         .then(sensors => {
-					debug('getSensors response', sensors);
-          this.log(`Found ${sensors.length} sensors in telldus live.`);
+			debug('getSensors response', sensors);
+          	this.log(`Found ${sensors.length} sensors in telldus live.`);
 
-					return sensors.map(sensor => createDevice(sensor)).filter(sensor => sensor);
+				return sensors.map(sensor => createDevice(sensor)).filter(sensor => sensor);
         })
 				.then(sensors => {
 					return api.listDevices()
@@ -296,7 +296,14 @@ module.exports = function(homebridge) {
 				}
 
 				if (cx instanceof Characteristic.CurrentTemperature) {
-					cx.getValueFromDev = dev => parseFloat(((dev.data || [])[0] || {}).value);
+					cx.getValueFromDev = dev => {
+						const tempData = (dev.data || []).find(d => d.name === "temp");
+						if (tempData && tempData.value) {
+							return parseFloat(tempData.value);
+						} else {
+							return NaN
+						}
+					}
 
 					cx.on('get', (callback) => {
 						bluebird.resolve(api.getSensorInfo(this.device.id)).asCallback((err, device) => {
@@ -319,8 +326,15 @@ module.exports = function(homebridge) {
 				}
 
 				if (cx instanceof Characteristic.CurrentRelativeHumidity) {
-					cx.getValueFromDev = dev => parseFloat(((dev.data || [])[1] || {}).value);
-					
+					cx.getValueFromDev = dev => {
+						const humData = (dev.data || []).find (d => d.name === "humidity");
+						if (humData && humData.value) {
+							return parseFloat(humData.value);
+						} else {
+							return NaN
+						}
+					}
+
 					cx.on('get', (callback) => {
 						bluebird.resolve(api.getSensorInfo(this.device.id)).asCallback((err, device) => {
 							if (err) return callback(err); 

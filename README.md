@@ -134,6 +134,14 @@ model (`unknown_accessories`) | Description
 See also:
 [Telldus Compatibility](http://old.telldus.com/products/compability) (note: not all of these are yet supported.)
 
+# Updates
+
+## 2.0.4
+The code now searches the data array for an object with "name": "temp". If the object is found and has a valid value, the temperature is parsed as a floating-point number. If temp data is missing or invalid, the plugin logs a warning and defaults the temperature to 0°C. 
+```
+const tempData = (dev.data || []).find(d => d.name === "temp");
+```
+
 # Auto startup
 To auto startup `homebridge` on boot and auto-restart on crash, I recommend using [PM2](https://nodejs.org/dist/v8.7.0/node-v8.7.0-linux-x64.tar.xz). It allows auto setup of init scripts for popular operating systems.
 
