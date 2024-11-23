@@ -136,7 +136,7 @@ See also:
 
 # Updates
 
-## 2.0.4
+## v2.0.4
 The code now searches the data array for an object with "name": "temp". If the object is found and has a valid value, the temperature is parsed as a floating-point number. If temp data is missing or invalid, the plugin logs a warning and defaults the temperature to 0°C. 
 ```
 const tempData = (dev.data || []).find(d => d.name === "temp");
